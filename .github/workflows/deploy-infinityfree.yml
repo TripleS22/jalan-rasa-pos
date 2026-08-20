@@ -1,0 +1,78 @@
+name: Deploy to InfinityFree
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, dom, fileinfo, mysqli, pdo_mysql, bcmath, curl
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # Kept WITH dev deps on purpose — fakerphp/faker is required by the
+      # seeder this deploy runs on first boot. See docker/entrypoint.sh for
+      # the same reasoning on the Docker path.
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Package for shared hosting (split htdocs/ + laravel/)
+        env:
+          DEPLOY_APP_NAME: Jalan Rasa POS
+          DEPLOY_APP_KEY: ${{ secrets.APP_KEY }}
+          DEPLOY_APP_URL: ${{ secrets.APP_URL }}
+          DEPLOY_HOOK_TOKEN: ${{ secrets.DEPLOY_HOOK_TOKEN }}
+          DEPLOY_DB_HOST: ${{ secrets.INFINITYFREE_DB_HOST }}
+          DEPLOY_DB_DATABASE: ${{ secrets.INFINITYFREE_DB_DATABASE }}
+          DEPLOY_DB_USERNAME: ${{ secrets.INFINITYFREE_DB_USERNAME }}
+          DEPLOY_DB_PASSWORD: ${{ secrets.INFINITYFREE_DB_PASSWORD }}
+        run: sh scripts/package-infinityfree.sh
+
+      - name: Upload htdocs/ (web root)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./dist/htdocs/
+          server-dir: ${{ secrets.INFINITYFREE_HTDOCS_DIR }}
+          dangerous-clean-slate: false
+
+      - name: Upload laravel/ (app, not web-accessible)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./dist/laravel/
+          server-dir: ${{ secrets.INFINITYFREE_APP_DIR }}
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+
+      - name: Run migrations (no SSH — via the token-gated web endpoint)
+        run: |
+          curl -fsS -X POST "${{ secrets.APP_URL }}/api/_deploy/migrate" \
+            -d "token=${{ secrets.DEPLOY_HOOK_TOKEN }}"

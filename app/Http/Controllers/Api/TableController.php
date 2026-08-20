@@ -5,8 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Outlet;
 use App\Models\Table;
-use Endroid\QrCode\Builder\Builder;
-use Endroid\QrCode\Writer\SvgWriter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -77,21 +75,15 @@ class TableController extends Controller
     }
 
     /**
-     * Render the table's QR code as a scannable SVG image, pointing customers
-     * to the self-order page for this table.
+     * The self-order URL this table's QR code should encode. Clients (web,
+     * mobile) render the actual QR image themselves — no server-side image
+     * generation, so no PHP QR library dependency.
      */
     public function qr(Table $table)
     {
-        $url = rtrim(config('app.self_order_url'), '/')."/{$table->code}";
-
-        $result = (new Builder(
-            writer: new SvgWriter,
-            data: $url,
-            size: 320,
-            margin: 10,
-        ))->build();
-
-        return response($result->getString())->header('Content-Type', $result->getMimeType());
+        return response()->json([
+            'url' => rtrim(config('app.self_order_url'), '/')."/{$table->code}",
+        ]);
     }
 
     protected function generateUniqueCode(): string

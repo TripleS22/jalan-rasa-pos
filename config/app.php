@@ -70,6 +70,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Deploy Hook Token
+    |--------------------------------------------------------------------------
+    |
+    | Only used on hosts with no SSH access (see DeployHookController). Leave
+    | unset anywhere else — the endpoint refuses every request when this is
+    | empty.
+    |
+    */
+
+    'deploy_hook_token' => env('DEPLOY_HOOK_TOKEN'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

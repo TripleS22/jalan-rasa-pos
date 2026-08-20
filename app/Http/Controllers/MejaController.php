@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Outlet;
 use App\Models\Table;
-use Endroid\QrCode\Builder\Builder;
-use Endroid\QrCode\Writer\SvgWriter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -28,6 +26,7 @@ class MejaController extends Controller
             'tables' => $tables,
             'outlets' => Outlet::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'filters' => $request->only('search', 'outlet_id'),
+            'selfOrderBaseUrl' => rtrim(config('app.self_order_url'), '/'),
         ]);
     }
 
@@ -78,24 +77,6 @@ class MejaController extends Controller
         $meja->update(['code' => $this->generateUniqueCode()]);
 
         return redirect()->route('meja.index')->with('success', 'Kode QR meja berhasil diperbarui. QR lama tidak berlaku lagi.');
-    }
-
-    /**
-     * Render the table's QR code as a scannable SVG, pointing customers to
-     * the self-order page for this table.
-     */
-    public function qr(Table $meja)
-    {
-        $url = rtrim(config('app.self_order_url'), '/')."/{$meja->code}";
-
-        $result = (new Builder(
-            writer: new SvgWriter,
-            data: $url,
-            size: 320,
-            margin: 10,
-        ))->build();
-
-        return response($result->getString())->header('Content-Type', $result->getMimeType());
     }
 
     protected function generateUniqueCode(): string

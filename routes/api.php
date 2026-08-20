@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ConsignmentPartnerController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\CustomerReturnController;
 use App\Http\Controllers\Api\DeliveryController;
+use App\Http\Controllers\Api\DeployHookController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\ForecastController;
 use App\Http\Controllers\Api\OrderController;
@@ -30,6 +31,11 @@ use App\Http\Controllers\Api\WasteController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
+
+// No-SSH shared hosting only (see DeployHookController) — inert everywhere
+// else since it 403s unless DEPLOY_HOOK_TOKEN is configured. Lives under
+// api.php (stateless, no CSRF) since it's called by curl from CI, not a browser.
+Route::post('/_deploy/migrate', [DeployHookController::class, 'migrate'])->name('deploy-hook.migrate');
 
 // Publik, tanpa login — diakses lewat QR code meja dari HP pelanggan.
 Route::prefix('public')->middleware('throttle:30,1')->group(function () {

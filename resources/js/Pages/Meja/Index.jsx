@@ -1,15 +1,26 @@
 import Modal from '@/Components/Modal';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { QRCodeCanvas } from 'qrcode.react';
+import { useRef, useState } from 'react';
 
-export default function MejaIndex({ tables, outlets, filters }) {
+export default function MejaIndex({
+    tables,
+    outlets,
+    filters,
+    selfOrderBaseUrl,
+}) {
     const { flash } = usePage().props;
     const [search, setSearch] = useState(filters.search ?? '');
     const [outletFilter, setOutletFilter] = useState(filters.outlet_id ?? '');
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState(null);
     const [qrTable, setQrTable] = useState(null);
+    const qrCanvasRef = useRef(null);
+
+    function selfOrderUrlFor(table) {
+        return `${selfOrderBaseUrl}/${table.code}`;
+    }
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } =
         useForm({
@@ -72,27 +83,20 @@ export default function MejaIndex({ tables, outlets, filters }) {
     }
 
     function downloadQrAsPng(table) {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth || 340;
-            canvas.height = img.naturalHeight || 340;
+        const canvas = qrCanvasRef.current;
 
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0);
+        if (!canvas) {
+            return;
+        }
 
-            canvas.toBlob((blob) => {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `qr-meja-${table.table_no}.png`;
-                a.click();
-                URL.revokeObjectURL(url);
-            }, 'image/png');
-        };
-        img.src = route('meja.qr', table.id);
+        canvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `qr-meja-${table.table_no}.png`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }, 'image/png');
     }
 
     function regenerateCode(table) {
@@ -419,9 +423,11 @@ export default function MejaIndex({ tables, outlets, filters }) {
                         <p className="mb-4 text-sm text-neutral-500">
                             {qrTable.outlet?.name}
                         </p>
-                        <img
-                            src={route('meja.qr', qrTable.id)}
-                            alt={`QR meja ${qrTable.table_no}`}
+                        <QRCodeCanvas
+                            ref={qrCanvasRef}
+                            value={selfOrderUrlFor(qrTable)}
+                            size={256}
+                            marginSize={2}
                             className="mx-auto h-64 w-64"
                         />
                         <p className="mt-3 text-xs text-neutral-400">
