@@ -1,0 +1,44 @@
+name: Deploy to Koyeb
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install and configure the Koyeb CLI
+        uses: koyeb-community/koyeb-actions@v2
+        with:
+          api_token: "${{ secrets.KOYEB_API_TOKEN }}"
+
+      - name: Build and deploy to Koyeb
+        uses: koyeb/action-git-deploy@v1
+        with:
+          app-name: jalan-rasa-pos
+          service-name: web
+          git-builder: docker
+          git-docker-dockerfile: Dockerfile
+          service-instance-type: nano
+          service-ports: "8000:http"
+          service-routes: "/:8000"
+          service-checks: "8000:http:/up"
+          service-env: >-
+            APP_NAME=Jalan Rasa POS,
+            APP_ENV=production,
+            APP_DEBUG=false,
+            APP_KEY=${{ secrets.APP_KEY }},
+            APP_URL=${{ secrets.APP_URL }},
+            SELF_ORDER_URL=${{ secrets.APP_URL }}/order/t,
+            ASSET_URL=${{ secrets.APP_URL }},
+            DB_CONNECTION=sqlite,
+            SESSION_DRIVER=database,
+            CACHE_STORE=database,
+            QUEUE_CONNECTION=sync,
+            BROADCAST_CONNECTION=log,
+            LOG_CHANNEL=stderr
